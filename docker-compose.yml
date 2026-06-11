@@ -1,0 +1,39 @@
+﻿services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: centuryply_uat_local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d centuryply_uat_local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_NAME=centuryply_uat_local
+      - DB_USER=postgres
+      - DB_PASSWORD=12345
+      - DB_HOST=db
+      - DB_PORT=5432
+    depends_on:
+      db:
+        condition: service_healthy
+    # First apply database migrations, then boot up the Gunicorn server
+    command: >
+      sh -c "python manage.py migrate && 
+             gunicorn --bind 0.0.0.0:8000 core.wsgi:application"
+
+volumes:
+  postgres_data:
